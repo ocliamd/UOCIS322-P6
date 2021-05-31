@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <title>ACP Control Times</title>
+        <meta charset="utf-8">
+        <!-- 'viewport' is used by bootstrap to respond to device size -->
+        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+        <!-- Bootstrap includes javascript and css  (must follow jquery) -->
+        <link
+            rel="stylesheet"
+            href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/css/bootstrap.min.css"
+            integrity="sha384-B0vP5xmATw1+K9KRQjQERJvTumQW0nPEzvF6L/Z6nronJ3oUOFUFpCjEUQouq2+l"
+            crossorigin="anonymous">
+        <!-- Javascript:  JQuery from a content distribution network (CDN) -->
+        <script
+            src="https://code.jquery.com/jquery-3.5.1.min.js"
+            integrity="sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0="
+            crossorigin="anonymous"></script>
+        <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"
+            integrity="sha384-9/reFTGAW83EW2RDu2S0VKaIzap3H66lZH81PoYlFhbGU+6BZp6G7niu735Sk7lN"
+            crossorigin="anonymous"></script>
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.min.js"
+            integrity="sha384-+YQ4JLhjyBLPDQt//I+STsc9iw4uQqACwlvpslubQzn4u2UU2UFM80nGisd026JF"
+            crossorigin="anonymous"></script>
+        <!-- moment.js is the JavaScript equivalent of arrow.py -->
+        <script src="{{ url_for('static', filename='js/moment.min.js') }}"></script>
+        <style>
+            .button {
+                color: black;
+                border-radius: 5px;
+                height: 30px;
+            }
+            .option_format {
+                font-weight: bold;
+                margin-left: 15px;
+                margin-top: 5px;
+            }
+            .display {
+                margin-bottom: 10px;
+                margin-left: 15px;
+                color: darkslategray;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1 class="frame">ACP Control Times Display</h1>
+            <form style="margin-bottom:10px;">
+                Display every open and close times in
+                <select name="datatype1" id="datatype1" required>
+                    <option value="none" selected disabled hidden>
+                        Options:
+                    </option>
+                    <option value="json">JSON</option>
+                    <option value="csv">CSV</option>
+                </select>
+                format.
+                <button type="button" class="button" onclick="retrieve('1')">Submit</button>
+            </form>
+            <pre class="display" id="display1"><code></code></pre>
+            <form style="margin-bottom:10px;">
+                Display the open times in
+                <select name="datatype2" id="datatype2" required>
+                    <option value="none" selected disabled hidden>
+                        Options:
+                    </option>
+                    <option value="json">JSON</option>
+                    <option value="csv">CSV</option>
+                </select>
+                format.
+                <button type="button" class="button" onclick="retrieve(2)">Submit</button>
+            </form>
+            <pre class="display" id="display2"></pre>
+            <form style="margin-bottom:10px;">
+                Display the close times in
+                <select name="datatype3" id="datatype3" required>
+                    <option value="none" selected disabled hidden>
+                        Option:
+                    </option>
+                    <option value="json">JSON</option>
+                    <option value="csv">CSV</option>
+                </select>
+                format.
+                <button type="button" class="button" onclick="retrieve(3)">Submit</button>
+            </form>
+            <pre class="display" id="display3"></pre>
+            <form>
+                Display the first
+                <input type="text" size="3" id="top" required>
+                <select name="displaytype" id="displaytype" required>
+                    <option value="none" selected disabled hidden>
+                        Options:
+                    </option>
+                    <option value="both">open and close times</option>
+                    <option value="open">open times</option>
+                    <option value="close">close times</option>
+                    <!--<input type="submit" value="Submit"> -->
+                </select>
+                in
+                <select name="datatype4" id="datatype4" required>
+                    <option value="none" selected disabled hidden>
+                        Options:
+                    </option>
+                    <option value="json">JSON</option>
+                    <option value="csv">CSV</option>
+                </select>
+                format.
+                <button type="button" class="button" onclick="retrieve(4)">Submit</button>
+            </form>
+            <pre class="display" id="display4"></pre>
+            <script>
+                var SCRIPT_ROOT = {{ request.script_root|tojson|safe }};
+                var LISTALL = SCRIPT_ROOT + "/listAll";
+                var LISTOPEN = SCRIPT_ROOT + "/listOpenOnly";
+                var LISTCLOSED = SCRIPT_ROOT + "/listCloseOnly";
+
+
+                function retrieve(option){
+                    var datatype_id = "#datatype" + option;
+                    var display_id = "display" + option;
+                    var datatype_val = $(datatype_id).val();
+                    var display = document.getElementById(display_id)
+                    var displaytype_val = $("#displaytype").val()
+                    var top_k = $("#top").val();
+                    var error = false;
+
+                    if (option == "4") {
+                        if (error == false && (top_k == "" || parseInt(top_k) <= 0)) {
+                            error = true;
+                            alert("You must enter a positive integer!");
+                        }
+                        if (error == false && displaytype_val == null) {
+                            error = true;
+                            alert("You must select an options!");
+                        }
+                    }
+                    else {
+                        if (top_k == "") {
+                            top_k = "0";
+                        }
+
+                    }
+                    if (error == false && datatype_val == null) {
+                        error = true;
+                        alert("You must select an option!");
+                    }
+                    if (error == false) {
+                        if (option == "1" || (option == "4" && displaytype_val == "both")) {
+                            $.getJSON(LISTALL, {top: top_k, datatype: $(datatype_id).val()}).done(
+                                function(data) {
+                                    if (data.result == "empty") {
+                                        alert("The database is empty. Please, submit at least one control time.");
+                                    }
+                                    else {
+                                        display.innerHTML = data.result;
+                                    }
+                                }
+                            ).fail(function(err){
+                                console.log("Error!");
+                            });
+                        }
+                        else if (option == "2" || (option == "4" && displaytype_val == "open")) {
+                            $.getJSON(LISTOPEN, {top: top_k, datatype: $(datatype_id).val()}).done(
+                                function(data) {
+                                    if (data.result == "empty") {
+                                        alert("The database is empty. Please, submit at least one control time.");
+                                    }
+                                    else {
+                                        display.innerHTML = data.result;
+                                    }
+                                }
+                            ).fail(function(err){
+                                console.log("Error!");
+                            });
+                        }
+                        else if (option == "3" || (option == "4" && displaytype_val == "close")) {
+                            $.getJSON(LISTCLOSED, {top: top_k, datatype: $(datatype_id).val()}).done(
+                                function(data) {
+                                    if (data.result == "empty") {
+                                        alert("The database is empty. Please, submit at least one control time.");
+                                    }
+                                    else {
+                                        display.innerHTML = data.result;
+                                    }
+                                }
+                            ).fail(function(err){
+                                console.log("Error!");
+                            });
+                        }
+                    }
+                }
+
+            </script>
+        </div>
+    </body>
+</html>

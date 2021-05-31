@@ -7,26 +7,25 @@ import os
 import flask
 from pymongo import MongoClient
 from flask import request
-import arrow  
-import acp_times 
-import db 
-import config 
+import arrow  # Replacement for datetime, based on moment.js
+import acp_times  # Brevet time calculations
+import db # Database operations
 
-import logging
 
 ###
 # Globals
 ###
 app = flask.Flask(__name__)
-CONFIG = config.configuration()
 
-user = db.Mongodb(os.environ['MONGODB_HOSTNAME'])
-user.connect()
-user.set_data("brevetsdb")
+db_client = db.Mongodb(os.environ['MONGODB_HOSTNAME'])
+db_client.connect()
+db_client.set_data("brevetsdb")
+db_client.set_collection("latestsubmit")
 
 ###
 # Pages
 ###
+
 
 @app.route("/")
 @app.route("/index")
@@ -35,41 +34,44 @@ def index():
     return flask.render_template('calc.html')
 
 
-@app.errorhandler(404)
-def page_not_found(error):
-    app.logger.debug("Page not found")
-    return flask.render_template('404.html'), 404
-
-
 @app.route("/insert", methods=["POST"])
 def submit():
-    input = request.form.to_dict()
+    data = request.form.to_dict()
     # Converting string representation of list to a list
-    input['table'] = eval(input['table'])
-    table = input['table']
+    data['table'] = eval(data['table'])
+    table = data['table']
     # Remove the previous submit result
-    user.delete_rows("recent_submitt")
+    db_client.delete_rows()
 
     for i in range(len(table)):
         row = table[str(i)]
-        user.insert("recent_submitt", row)
-    return flask.jsonify(output=str(input))
+        for key, value in row.items():
+            if key == "km":
+                row[key] = int(value)
+        db_client.insert(row)
+    return flask.jsonify(output=str(data))
 
 
 @app.route("/display")
 def display():
-    reach_back = user.list_rows("recent_submitt")
-    app.logger.debug(reach_back)
+    reach_back = db_client.list_rows()
     brevet = begin_date = ""
     if len(reach_back) > 0:
         brevet = reach_back[0]['brevet']
         begin_date = reach_back[0]['begin']
     return flask.render_template('display.html', result=reach_back, brevet=brevet, begin=begin_date)
 
+
+@app.errorhandler(404)
+def page_not_found(error):
+    app.logger.debug("Page not found")
+    return flask.render_template('404.html'), 404
+
+
 ###############
 #
 # AJAX request handlers
-# These return JSON, rather than rendering pages.
+#   These return JSON, rather than rendering pages.
 #
 ###############
 @app.route("/_calc_times")
@@ -98,10 +100,5 @@ def _calc_times():
 
 #############
 
-app.debug = CONFIG.DEBUG
-if app.debug:
-    app.logger.setLevel(logging.DEBUG)
-
 if __name__ == "__main__":
-    print("Using the port {} for global access".format(CONFIG.PORT))
-    app.run(port=CONFIG.PORT, host="0.0.0.0")
+    app.run(host="0.0.0.0", debug=True)
